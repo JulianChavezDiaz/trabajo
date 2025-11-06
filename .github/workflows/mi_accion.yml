@@ -6,6 +6,7 @@ on:
       - main
   pull_request:
 
+# 🔐 Permisos necesarios para subir imágenes a GHCR
 permissions:
   contents: read
   packages: write
@@ -51,4 +52,4 @@ jobs:
         context: .
         file: ./chavez
         push: true
-        tags: ghcr.io/${{ github.actor }}/trabajo:latest
+        tags: ghcr.io/julianchavezdiaz/trabajo:latest
