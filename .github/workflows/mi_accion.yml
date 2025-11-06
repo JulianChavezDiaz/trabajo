@@ -6,6 +6,10 @@ on:
       - main
   pull_request:
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -47,4 +51,4 @@ jobs:
         context: .
         file: ./chavez
         push: true
-        tags: ghcr.io/julianchavezdiaz/trabajo:latest
+        tags: ghcr.io/${{ github.actor }}/trabajo:latest
