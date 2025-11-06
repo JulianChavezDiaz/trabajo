@@ -44,5 +44,7 @@ jobs:
     - name: 🏗️ Build and push Docker image
       uses: docker/build-push-action@v6
       with:
+        context: .
+        file: ./chavez
         push: true
         tags: ghcr.io/julianchavezdiaz/trabajo:latest
