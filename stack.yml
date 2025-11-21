@@ -3,7 +3,6 @@ version: "3.8"
 services:
   julian:
     image: ghcr.io/julianchavezdiaz/chavez:latest
-    build: .
     deploy:
       replicas: 1
       labels:
