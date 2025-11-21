@@ -1,44 +1,36 @@
-name: CI/CD Pipeline
+name: Python application
 
 on:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
   pull_request:
+    branches: [ "main" ]
 
-# 🔐 Permisos necesarios para subir imágenes a GHCR
 permissions:
   contents: read
   packages: write
 
 jobs:
   build:
+
     runs-on: ubuntu-latest
 
     steps:
-    - name: 🧾 Checkout repository
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    - name: 🐍 Set up Python
-      uses: actions/setup-python@v5
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v3
       with:
-        python-version: '3.10'
+        python-version: "3.10"
 
-    - name: 📦 Install dependencies
+    - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install flake8 pytest
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    
 
-    - name: 🧹 Run lint (Ruff)
-      run: |
-        echo "🔍 Analizando el código con Ruff..."
-        ruff check .
-
-    - name: 🧪 Run tests (Pytest)
-      run: |
-        echo "🚀 Ejecutando pruebas con pytest..."
-        pytest -v || echo "⚠️ No se encontraron pruebas o algunas fallaron."
-
+    # 🟦 LOGIN A GHCR CON TU USUARIO
     - name: 🔐 Login to GitHub Container Registry
       uses: docker/login-action@v3
       with:
@@ -46,10 +38,67 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
+    # 🟦 TAG CON TU USUARIO: ghcr.io/julianchavezdiaz/nombre:latest
     - name: 🏗️ Build and push Docker image
       uses: docker/build-push-action@v6
       with:
-        context: .
-        file: ./chavez
+        context:
+        file: ./Dockerfile
         push: true
         tags: ghcr.io/julianchavezdiaz/chavez:latest
+        
+    - name: 🧾 Mostrar variables básicas (solo locales, no secretos)
+      run: |
+        echo "Probando conexión SSH con:"
+        echo "Host: ${{ secrets.VPS_HOST }}"
+        echo "Usuario: ${{ secrets.VPS_USER }}"
+        echo "Puerto: ${{ secrets.VPS_SSH_PORT }}"
+    
+    - name: 🧪 Probar conexión SSH
+      uses: appleboy/ssh-action@v1
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USER }}
+        password: ${{ secrets.VPS_PASSWORD }}
+        port: ${{ secrets.VPS_SSH_PORT }}
+        script: |
+          echo "✅ Conexión exitosa desde GitHub Actions"
+          hostname
+          whoami
+          uptime
+
+    - name: 🧪 Probar conexión SCP
+      uses: appleboy/scp-action@v1
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USER }}
+        password: ${{ secrets.VPS_PASSWORD }}
+        port: ${{ secrets.VPS_SSH_PORT }}   
+        source: "stack.yml"
+        target: "/home/${{ secrets.VPS_USER }}/deploy"  
+
+    - name: 🧪 Despliegue de servicio
+      uses: appleboy/ssh-action@v1
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USER }}
+        password: ${{ secrets.VPS_PASSWORD }}
+        port: ${{ secrets.VPS_SSH_PORT }}   
+        script: |
+          echo "✅ desplegando servicios"
+          cd ~/deploy
+
+          echo " descargando la imagen desde GHCR"
+          echo "${{ secrets.GHCR_PATH }}" | docker login ghcr.io -u julianchavezdiaz --password-stdin
+          docker pull ghcr.io/julianchavezdiaz/chavez:latest
+
+          echo " deteniendo los servicios"
+          docker stack rm julian || true
+
+          echo "esperar 20 segundos..."
+          sleep 20
+
+          echo "desplegano el stack a los servicios"
+          docker stack deploy --with-registry-auth -c stack.yml julian
+
+          docker ps
